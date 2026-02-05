@@ -1,7 +1,5 @@
 fastapi
 uvicorn[standard]
 python-socketio
-azure-messaging-webpubsub-socketio
 python-dotenv
 gunicorn
-
