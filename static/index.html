@@ -1136,15 +1136,29 @@
             activeSFX: [],
             initialized: false,
             history: {},
+            sfxCache: {}, // Pre-loaded Audio objects for instant playback
             init() {
                 if (this.initialized) return;
                 this.initialized = true;
 
+                // Pre-load Loops
                 this.loops.forEach(loop => {
                     loop.loop = false;
                     loop.volume = 0;
                     loop.onended = () => this.playNextLoop();
                 });
+
+                // Pre-load ALL SFX for zero-latency
+                const sfxCategories = ['playerX', 'playerO', 'random', 'win', 'lose', 'draw'];
+                sfxCategories.forEach(cat => {
+                    this[cat].forEach(src => {
+                        const audio = new Audio(src);
+                        audio.preload = 'auto';
+                        audio.load(); // Force browser to start downloading
+                        this.sfxCache[src] = audio;
+                    });
+                });
+
                 this.playNextLoop();
             },
 
@@ -1159,8 +1173,8 @@
                 nextLoop.currentTime = 0;
                 nextLoop.play().catch(e => console.log("Loop play failed:", e));
 
-                // Pure smooth transition (Crossfade)
-                this.fade(null, nextLoop, 0.3, 2000);
+                // Lowered volume to 0.2 (-30% reduction from 0.3)
+                this.fade(null, nextLoop, 0.2, 2000);
                 if (oldIdx !== -1) {
                     this.fade(this.loops[oldIdx], null, 0, 2000);
                 }
@@ -1191,7 +1205,7 @@
                 }
             },
 
-            unduck(level = 0.3) {
+            unduck(level = 0.2) {
                 if (this.currentLoopIdx !== -1) {
                     this.loops[this.currentLoopIdx].volume = level;
                 }
@@ -1226,7 +1240,10 @@
 
                 this.history[historyKey] = idx;
                 const src = list[idx];
-                const sfx = new Audio(src);
+
+                // Use cached audio for instant response
+                const cached = this.sfxCache[src];
+                const sfx = cached ? cached.cloneNode() : new Audio(src);
                 sfx.volume = 0.8;
                 this.activeSFX.push(sfx);
 
