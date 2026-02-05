@@ -1,62 +1,51 @@
-# Deploying to Azure (Free Tier)
+# Deploying to Azure (Free Tier) - Standard Method
 
-This guide will help you deploy the Tic-Tac-Toe Ultra project to Azure using only free services.
+This guide uses the Azure App Service (F1 Free tier) to host both your game and the real-time communication.
 
 ## Prerequisites
 1. An Azure Account ([Create one for free](https://azure.microsoft.com/free/)).
-2. Azure CLI installed (type `az` in terminal to check).
+2. Your project is pushed to GitHub.
 
 ---
 
-## Step 1: Create Azure App Service (Backend)
+## Step 1: Create a Fresh Web App
+Since the per-plan quota might have been hit, we recommend starting fresh:
 1. Go to the **Azure Portal**.
 2. Create a new **Web App**:
-   - **Name**: `ttt-ultra-backend` (or similar)
+   - **Name**: Pick a new unique name (e.g., `ttt-ultra-backend-v2`)
    - **Runtime stack**: `Python 3.12`
    - **Operating System**: `Linux`
-   - **Pricing Plan**: `Free F1` (This is very important!)
-3. Under **Deployment**, leave GitHub Actions **Disabled** for now (Azure often blocks this during the initial creation of Free Linux plans).
+   - **Pricing Plan**: Click "Create New" App Service Plan and ensure **Free F1** is selected.
+3. Under **Deployment**, leave GitHub Actions **Disabled** for now.
 4. Click **Review + Create**, then **Create**.
 
-## Step 1.5: Connect GitHub (After App is Created)
-1. Go to your new **Web App** resource in the portal.
-2. Go to **Deployment Center** (in the left sidebar).
-3. Select **Source**: `GitHub`.
-4. Sign in and select your repository (`Python-TicTacToe`) and the `main` branch.
-5. Click **Save**. This will automatically trigger a build and deploy your code!
+## Step 2: Configure Settings (Before Deployment)
+Once the app is created, go to the resource and set these up:
 
-## Step 2: Create Azure Web PubSub for Socket.IO (Real-time)
-1. In the Azure Portal, search for **Web PubSub**.
-2. Create a new resource:
-   - **Pricing Tier**: `Free`
-   - **Service Mode**: `Socket.IO`
-3. Once created, go to **Keys** and copy the **Connection String**.
+### A. Environment Variables
+1. Go to **Settings** -> **Environment variables**.
+2. Under **App settings**, make sure `SCM_DO_BUILD_DURING_DEPLOYMENT` is set to `1` or `true`.
+3. Click **Apply**.
 
-## Step 3: Configure environment variables
-1. Go back to your **App Service** (ttt-ultra-backend).
-2. Go to **Settings** -> **Configuration** -> **Application settings**.
-3. Add a new setting:
-   - **Name**: `AZURE_WEB_PUBSUB_CONNECTION_STRING`
-   - **Value**: (Paste your connection string here)
-4. Add another setting:
-   - **Name**: `SCM_DO_BUILD_DURING_DEPLOYMENT`
-   - **Value**: `true`
-5. Set the **Startup Command** (under **Configuration** -> **General Settings**):
-   - Command: `gunicorn -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT server:socket_app`
-6. Click **Save**.
+### B. General Settings (Crucial!)
+1. Go to **Settings** -> **Configuration** (or **General settings**).
+2. **Web sockets**: Set this toggle to **On**. (This allows the game to be real-time).
+3. **Startup Command**: Paste the following exactly:
+   `gunicorn -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT server:socket_app`
+4. Click **Save** and click "Continue" to restart the app.
 
-## Step 4: Add a "Hub" to Web PubSub
-1. Go to your **Web PubSub** resource.
-2. Go to **Settings** -> **Socket.IO Settings**.
-3. Click **Add Hub**:
-   - **Hub Name**: `hub1` (or anything)
-   - **Event Handler**: Add a URL pointing to your backend: `https://ttt-ultra-backend.azurewebsites.net/socket.io/`
-4. This allows the Web PubSub service to talk to your FastAPI code.
+## Step 3: Connect GitHub
+1. Go to **Deployment** -> **Deployment Center**.
+2. Select **Source**: `GitHub`.
+3. Select your repository (`Python-TicTacToe`) and the `main` branch.
+4. Choose the **first** Workflow option (let Azure create the file).
+5. Click **Save**.
 
 ---
 
 ## Technical Details
 This app uses:
-- **FastAPI** for logic and static files.
-- **Azure App Service (Free Tier)** for hosting.
-- **Azure Web PubSub for Socket.IO (Free Tier)** for robust real-time communication.
+- **FastAPI** to serve the logic.
+- **Python-SocketIO** for real-time play.
+- **Web Sockets** enabled on Azure to allow persistent connections.
+- **F1 Free Plan**: Provides 60 minutes of CPU time daily.
