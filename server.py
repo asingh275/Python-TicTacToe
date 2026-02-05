@@ -4,9 +4,21 @@ from fastapi.staticfiles import StaticFiles
 import uvicorn
 import random
 import string
+import os
+from dotenv import load_dotenv
+from azure.messaging.webpubsub.socketio import WebPubSubManager
+
+load_dotenv()
 
 # 1. Create a Socket.io server
-sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
+connection_string = os.getenv('AZURE_WEB_PUBSUB_CONNECTION_STRING')
+if connection_string:
+    print("Using Azure Web PubSub for Socket.IO")
+    sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*', 
+                               client_manager=WebPubSubManager(connection_string))
+else:
+    print("Using local Socket.IO")
+    sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 
 # 2. Wrap it in an ASGI application
 app = FastAPI()
@@ -312,4 +324,5 @@ async def get_index():
     return FileResponse("static/index.html")
 
 if __name__ == "__main__":
-    uvicorn.run(socket_app, host="0.0.0.0", port=8001)
+    port = int(os.getenv("PORT", 8001))
+    uvicorn.run(socket_app, host="0.0.0.0", port=port)
